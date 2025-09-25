@@ -1,0 +1,95 @@
+import math
+import sys
+import pygame
+
+WIDTH, HEIGHT = 900, 900
+CENTER = (WIDTH // 2, HEIGHT // 2)
+FPS = 360
+
+# Simulate perceived temperature (°C) in Inner Mongolia over a year (365 days)
+def get_body_temp(t):
+    # Simulate one year: t mapped to day of year (0-364)
+    day_of_year = (t * 0.05) % 365
+    # Approximate seasonal perceived temperature (°C)
+    # Winter: -20°C, Spring: 5°C, Summer: 25°C, Autumn: 10°C
+    # Use a sine wave for smooth seasonal transition
+    # Min at day 0 (mid-winter, Jan), max at day 180 (mid-summer, July)
+    avg = 2.5  # annual average
+    amp = 22.5  # amplitude
+    temp = avg + amp * math.sin((day_of_year - 30) / 365 * 2 * math.pi)
+    # Add some daily variation (simulate day/night)
+    hour = (t * 1.2) % 24
+    temp += 3 * math.sin((hour - 6) / 24 * 2 * math.pi)
+    return temp
+
+def temp_to_color(temp):
+    # Map temp to color: blue (cold) to red (hot)
+    # Range: -20°C (blue) to 25°C (red)
+    norm = (temp + 20) / (25 + 20)
+    norm = max(0, min(1, norm))
+    r = int(5 + 175 * norm)
+    g = int(10 - 100 * norm)
+    b = int(100 - 200 * norm)
+    return (r, g, b)
+
+def draw_dna_helix(screen, t, temp):
+    # Möbius strip: parametric equation, color gradient by temp
+    n_points = 900
+    mobius_radius = 320 + 200 * ((temp + 20) / 45)  # Larger range of motion
+    mobius_width = 140 + 60 * math.sin(t * 0.7)     # Wider band
+    
+    # Brighter colors
+    color1 = (int(100 + 95 * ((temp + 20) / 75)), 150, 255)
+    color2 = (255, int(50 + 55 * ((temp + 50) / 45)), 120)
+    light_dir = (0.3, -0.7, 0.6)  # Simple lighting direction
+    
+    for i in range(n_points):
+        theta = 2 * math.pi * i / n_points
+        for wfrac in [j/20-0.5 for j in range(21)]:
+            # Möbius parametric: x = (R + w*cos(theta/2)) * cos(theta), y = (R + w*cos(theta/2)) * sin(theta), z = w*sin(theta/2)
+            x0 = (mobius_radius + mobius_width * wfrac * math.cos(theta/2)) * math.cos(theta)
+            y0 = (mobius_radius + mobius_width * wfrac * math.cos(theta/2)) * math.sin(theta)
+            z0 = mobius_width * wfrac * math.sin(theta/2)
+            
+            # 3D to 2D projection (simple perspective)
+            persp = 0.86 + 0.0015 * z0
+            x = CENTER[0] + x0 * persp
+            y = CENTER[1] + y0 * persp - 0.7 * z0
+
+            # Lighting intensity
+            # Approximate normal vector
+            nx = math.cos(theta/2) * math.cos(theta)
+            ny = math.cos(theta/2) * math.sin(theta)
+            nz = math.sin(theta/2)
+            dot = max(0.6, nx*light_dir[0] + ny*light_dir[1] + nz*light_dir[1])
+            
+            # Color gradient + lighting
+            blend = (wfrac + 0.7) * 0.7 + 0.3 * (i / n_points)
+            c = [int((color1[j] * (1 - blend) + color2[j] * blend) * dot) for j in range(3)]
+            pygame.draw.circle(screen, c, (int(x), int(y)), 2)
+
+def main():
+    pygame.init()
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    pygame.display.set_caption('DNA Temperature Rhythm Art')
+    clock = pygame.time.Clock()
+    running = True
+    t = 0
+
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+
+        screen.fill((30, 30, 30))
+        temp = get_body_temp(t)
+        draw_dna_helix(screen, t, temp)
+        t += 0.06
+        pygame.display.flip()
+        clock.tick(FPS)
+
+    pygame.quit()
+    sys.exit()
+
+if __name__ == '__main__':
+    main()
